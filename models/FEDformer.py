@@ -74,34 +74,35 @@ class Model(nn.Module):
         # Encoder
         enc_modes = int(min(configs.modes, configs.seq_len//2))
         dec_modes = int(min(configs.modes, (configs.seq_len//2+configs.pred_len)//2))
-        print('enc_modes: {}, dec_modes: {}'.format(enc_modes, dec_modes))
+        print(f'enc_modes: {enc_modes}, dec_modes: {dec_modes}')
 
         self.encoder = Encoder(
             [
                 EncoderLayer(
                     AutoCorrelationLayer(
-                        encoder_self_att,
-                        configs.d_model, configs.n_heads),
-
+                        encoder_self_att, configs.d_model, configs.n_heads
+                    ),
                     configs.d_model,
                     configs.d_ff,
                     moving_avg=configs.moving_avg,
                     dropout=configs.dropout,
-                    activation=configs.activation
-                ) for l in range(configs.e_layers)
+                    activation=configs.activation,
+                )
+                for _ in range(configs.e_layers)
             ],
-            norm_layer=my_Layernorm(configs.d_model)
+            norm_layer=my_Layernorm(configs.d_model),
         )
+
         # Decoder
         self.decoder = Decoder(
             [
                 DecoderLayer(
                     AutoCorrelationLayer(
-                        decoder_self_att,
-                        configs.d_model, configs.n_heads),
+                        decoder_self_att, configs.d_model, configs.n_heads
+                    ),
                     AutoCorrelationLayer(
-                        decoder_cross_att,
-                        configs.d_model, configs.n_heads),
+                        decoder_cross_att, configs.d_model, configs.n_heads
+                    ),
                     configs.d_model,
                     configs.c_out,
                     configs.d_ff,
@@ -109,10 +110,10 @@ class Model(nn.Module):
                     dropout=configs.dropout,
                     activation=configs.activation,
                 )
-                for l in range(configs.d_layers)
+                for _ in range(configs.d_layers)
             ],
             norm_layer=my_Layernorm(configs.d_model),
-            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            projection=nn.Linear(configs.d_model, configs.c_out, bias=True),
         )
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,
@@ -141,6 +142,7 @@ class Model(nn.Module):
 
 
 if __name__ == '__main__':
+
     class Configs(object):
         ab = 0
         modes = 32
@@ -173,7 +175,7 @@ if __name__ == '__main__':
     configs = Configs()
     model = Model(configs)
 
-    print('parameter number is {}'.format(sum(p.numel() for p in model.parameters())))
+    print(f'parameter number is {sum(p.numel() for p in model.parameters())}')
     enc = torch.randn([3, configs.seq_len, 7])
     enc_mark = torch.randn([3, configs.seq_len, 4])
 

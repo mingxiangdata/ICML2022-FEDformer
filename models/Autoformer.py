@@ -40,30 +40,50 @@ class Model(nn.Module):
             [
                 EncoderLayer(
                     AutoCorrelationLayer(
-                        AutoCorrelation(False, configs.factor, attention_dropout=configs.dropout,
-                                        output_attention=configs.output_attention),
-                        configs.d_model, configs.n_heads),
+                        AutoCorrelation(
+                            False,
+                            configs.factor,
+                            attention_dropout=configs.dropout,
+                            output_attention=configs.output_attention,
+                        ),
+                        configs.d_model,
+                        configs.n_heads,
+                    ),
                     configs.d_model,
                     configs.d_ff,
                     moving_avg=configs.moving_avg,
                     dropout=configs.dropout,
-                    activation=configs.activation
-                ) for l in range(configs.e_layers)
+                    activation=configs.activation,
+                )
+                for _ in range(configs.e_layers)
             ],
-            norm_layer=my_Layernorm(configs.d_model)
+            norm_layer=my_Layernorm(configs.d_model),
         )
+
         # Decoder
         self.decoder = Decoder(
             [
                 DecoderLayer(
                     AutoCorrelationLayer(
-                        AutoCorrelation(True, configs.factor, attention_dropout=configs.dropout,
-                                        output_attention=False),
-                        configs.d_model, configs.n_heads),
+                        AutoCorrelation(
+                            True,
+                            configs.factor,
+                            attention_dropout=configs.dropout,
+                            output_attention=False,
+                        ),
+                        configs.d_model,
+                        configs.n_heads,
+                    ),
                     AutoCorrelationLayer(
-                        AutoCorrelation(False, configs.factor, attention_dropout=configs.dropout,
-                                        output_attention=False),
-                        configs.d_model, configs.n_heads),
+                        AutoCorrelation(
+                            False,
+                            configs.factor,
+                            attention_dropout=configs.dropout,
+                            output_attention=False,
+                        ),
+                        configs.d_model,
+                        configs.n_heads,
+                    ),
                     configs.d_model,
                     configs.c_out,
                     configs.d_ff,
@@ -71,10 +91,10 @@ class Model(nn.Module):
                     dropout=configs.dropout,
                     activation=configs.activation,
                 )
-                for l in range(configs.d_layers)
+                for _ in range(configs.d_layers)
             ],
             norm_layer=my_Layernorm(configs.d_model),
-            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            projection=nn.Linear(configs.d_model, configs.c_out, bias=True),
         )
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,

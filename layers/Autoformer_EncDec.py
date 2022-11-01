@@ -75,7 +75,6 @@ class series_decomp_multi(nn.Module):
 class FourierDecomp(nn.Module):
     def __init__(self):
         super(FourierDecomp, self).__init__()
-        pass
 
     def forward(self, x):
         x_ft = torch.fft.rfft(x, dim=-1)

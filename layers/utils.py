@@ -231,15 +231,15 @@ def train(model, train_loader, optimizer, epoch, device, verbose = 0,
 
 def test(model, test_loader, device, verbose=0, lossFn=None,
         post_proc = lambda args: args):
-    
+
     model.eval()
     if lossFn is None:
         lossFn = nn.MSELoss()
-    
-    
+
+
     total_loss = 0.
     predictions = []
-    
+
     with torch.no_grad():
         for data, target in test_loader:
             bs = len(data)
@@ -247,10 +247,10 @@ def test(model, test_loader, device, verbose=0, lossFn=None,
             data, target = data.to(device), target.to(device)
             output = model(data)
             output = post_proc(output)
-            
+
             loss = lossFn(output.view(bs, -1), target.view(bs, -1))
             total_loss += loss.sum().item()
-    
+
     return total_loss/len(test_loader.dataset)
 
 
@@ -337,15 +337,13 @@ class RangeNormalizer(object):
         s = x.size()
         x = x.view(s[0], -1)
         x = self.a*x + self.b
-        x = x.view(s)
-        return x
+        return x.view(s)
 
     def decode(self, x):
         s = x.size()
         x = x.view(s[0], -1)
         x = (x - self.b)/self.a
-        x = x.view(s)
-        return x
+        return x.view(s)
     
 class LpLoss(object):
     def __init__(self, d=2, p=2, size_average=True, reduction=True):
@@ -368,11 +366,7 @@ class LpLoss(object):
         all_norms = (h**(self.d/self.p))*torch.norm(x.view(num_examples,-1) - y.view(num_examples,-1), self.p, 1)
 
         if self.reduction:
-            if self.size_average:
-                return torch.mean(all_norms)
-            else:
-                return torch.sum(all_norms)
-
+            return torch.mean(all_norms) if self.size_average else torch.sum(all_norms)
         return all_norms
 
     def rel(self, x, y):

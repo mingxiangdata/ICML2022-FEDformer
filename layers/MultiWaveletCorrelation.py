@@ -33,7 +33,7 @@ class MultiWaveletTransform(nn.Module):
         self.Lk0 = nn.Linear(ich, c * k)
         self.Lk1 = nn.Linear(c * k, ich)
         self.ich = ich
-        self.MWT_CZ = nn.ModuleList(MWT_CZ1d(k, alpha, L, c, base) for i in range(nCZ))
+        self.MWT_CZ = nn.ModuleList(MWT_CZ1d(k, alpha, L, c, base) for _ in range(nCZ))
 
     def forward(self, queries, keys, values, attn_mask):
         B, L, H, E = queries.shape
@@ -160,18 +160,18 @@ class MultiWaveletCross(nn.Module):
         Us = torch.jit.annotate(List[Tensor], [])
 
         # decompose
-        for i in range(ns - self.L):
+        for _ in range(ns - self.L):
             # print('q shape',q.shape)
             d, q = self.wavelet_transform(q)
-            Ud_q += [tuple([d, q])]
+            Ud_q += [(d, q)]
             Us_q += [d]
-        for i in range(ns - self.L):
+        for _ in range(ns - self.L):
             d, k = self.wavelet_transform(k)
-            Ud_k += [tuple([d, k])]
+            Ud_k += [(d, k)]
             Us_k += [d]
-        for i in range(ns - self.L):
+        for _ in range(ns - self.L):
             d, v = self.wavelet_transform(v)
-            Ud_v += [tuple([d, v])]
+            Ud_v += [(d, v)]
             Us_v += [d]
         for i in range(ns - self.L):
             dk, sk = Ud_k[i], Us_k[i]
@@ -226,8 +226,8 @@ class FourierCrossAttentionW(nn.Module):
         xq = q.permute(0, 3, 2, 1)  # size = [B, H, E, L] torch.Size([3, 8, 64, 512])
         xk = k.permute(0, 3, 2, 1)
         xv = v.permute(0, 3, 2, 1)
-        self.index_q = list(range(0, min(int(L // 2), self.modes1)))
-        self.index_k_v = list(range(0, min(int(xv.shape[3] // 2), self.modes1)))
+        self.index_q = list(range(min(int(L // 2), self.modes1)))
+        self.index_k_v = list(range(min(int(xv.shape[3] // 2), self.modes1)))
 
         # Compute Fourier coefficients
         xq_ft_ = torch.zeros(B, H, E, len(self.index_q), device=xq.device, dtype=torch.cfloat)
@@ -246,7 +246,7 @@ class FourierCrossAttentionW(nn.Module):
             xqk_ft = torch.softmax(abs(xqk_ft), dim=-1)
             xqk_ft = torch.complex(xqk_ft, torch.zeros_like(xqk_ft))
         else:
-            raise Exception('{} actiation function is not implemented'.format(self.activation))
+            raise Exception(f'{self.activation} actiation function is not implemented')
         xqkv_ft = torch.einsum("bhxy,bhey->bhex", xqk_ft, xk_ft_)
 
         xqkvw = xqkv_ft
@@ -342,7 +342,7 @@ class MWT_CZ1d(nn.Module):
         Ud = torch.jit.annotate(List[Tensor], [])
         Us = torch.jit.annotate(List[Tensor], [])
         #         decompose
-        for i in range(ns - self.L):
+        for _ in range(ns - self.L):
             # print('x shape',x.shape)
             d, x = self.wavelet_transform(x)
             Ud += [self.A(d) + self.B(x)]

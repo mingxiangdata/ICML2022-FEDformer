@@ -37,18 +37,16 @@ class Exp_Main(Exp_Basic):
         return data_set, data_loader
 
     def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
-        return model_optim
+        return optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
 
     def _select_criterion(self):
-        criterion = nn.MSELoss()
-        return criterion
+        return nn.MSELoss()
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
+            for batch_x, batch_y, batch_x_mark, batch_y_mark in vali_loader:
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float()
 
@@ -61,15 +59,20 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if self.args.output_attention:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-                        else:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs = (
+                            self.model(
+                                batch_x, batch_x_mark, dec_inp, batch_y_mark
+                            )[0]
+                            if self.args.output_attention
+                            else self.model(
+                                batch_x, batch_x_mark, dec_inp, batch_y_mark
+                            )
+                        )
+
+                elif self.args.output_attention:
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                 else:
-                    if self.args.output_attention:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-                    else:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 f_dim = -1 if self.args.features == 'MS' else 0
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
 
@@ -162,7 +165,7 @@ class Exp_Main(Exp_Basic):
                     loss.backward()
                     model_optim.step()
 
-            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
             train_loss = np.average(train_loss)
             vali_loss = self.vali(vali_data, vali_loader, criterion)
             test_loss = self.vali(test_data, test_loader, criterion)
@@ -176,7 +179,7 @@ class Exp_Main(Exp_Basic):
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-        best_model_path = path + '/' + 'checkpoint.pth'
+        best_model_path = f'{path}/checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
 
         return self.model
@@ -185,11 +188,16 @@ class Exp_Main(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         if test:
             print('loading model')
-            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+            self.model.load_state_dict(
+                torch.load(
+                    os.path.join(f'./checkpoints/{setting}', 'checkpoint.pth')
+                )
+            )
+
 
         preds = []
         trues = []
-        folder_path = './test_results/' + setting + '/'
+        folder_path = f'./test_results/{setting}/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
@@ -208,16 +216,21 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if self.args.output_attention:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-                        else:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                else:
-                    if self.args.output_attention:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+                        outputs = (
+                            self.model(
+                                batch_x, batch_x_mark, dec_inp, batch_y_mark
+                            )[0]
+                            if self.args.output_attention
+                            else self.model(
+                                batch_x, batch_x_mark, dec_inp, batch_y_mark
+                            )
+                        )
 
-                    else:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                elif self.args.output_attention:
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
+
+                else:
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
                 f_dim = -1 if self.args.features == 'MS' else 0
 
@@ -234,7 +247,7 @@ class Exp_Main(Exp_Basic):
                     input = batch_x.detach().cpu().numpy()
                     gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
                     pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+                    visual(gt, pd, os.path.join(folder_path, f'{str(i)}.pdf'))
 
         preds = np.array(preds)
         trues = np.array(trues)
@@ -244,22 +257,20 @@ class Exp_Main(Exp_Basic):
         print('test shape:', preds.shape, trues.shape)
 
         # result save
-        folder_path = './results/' + setting + '/'
+        folder_path = f'./results/{setting}/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
         mae, mse, rmse, mape, mspe = metric(preds, trues)
-        print('mse:{}, mae:{}'.format(mse, mae))
-        f = open("result.txt", 'a')
-        f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}'.format(mse, mae))
-        f.write('\n')
-        f.write('\n')
-        f.close()
-
-        np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
-        np.save(folder_path + 'pred.npy', preds)
-        np.save(folder_path + 'true.npy', trues)
+        print(f'mse:{mse}, mae:{mae}')
+        with open("result.txt", 'a') as f:
+            f.write(setting + "  \n")
+            f.write(f'mse:{mse}, mae:{mae}')
+            f.write('\n')
+            f.write('\n')
+        np.save(f'{folder_path}metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
+        np.save(f'{folder_path}pred.npy', preds)
+        np.save(f'{folder_path}true.npy', trues)
 
         return
 
@@ -268,14 +279,14 @@ class Exp_Main(Exp_Basic):
 
         if load:
             path = os.path.join(self.args.checkpoints, setting)
-            best_model_path = path + '/' + 'checkpoint.pth'
+            best_model_path = f'{path}/checkpoint.pth'
             self.model.load_state_dict(torch.load(best_model_path))
 
         preds = []
 
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(pred_loader):
+            for batch_x, batch_y, batch_x_mark, batch_y_mark in pred_loader:
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float()
                 batch_x_mark = batch_x_mark.float().to(self.device)
@@ -287,15 +298,20 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if self.args.output_attention:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-                        else:
-                            outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                        outputs = (
+                            self.model(
+                                batch_x, batch_x_mark, dec_inp, batch_y_mark
+                            )[0]
+                            if self.args.output_attention
+                            else self.model(
+                                batch_x, batch_x_mark, dec_inp, batch_y_mark
+                            )
+                        )
+
+                elif self.args.output_attention:
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                 else:
-                    if self.args.output_attention:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-                    else:
-                        outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+                    outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 pred = outputs.detach().cpu().numpy()  # .squeeze()
                 preds.append(pred)
 
@@ -303,10 +319,10 @@ class Exp_Main(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
 
         # result save
-        folder_path = './results/' + setting + '/'
+        folder_path = f'./results/{setting}/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        np.save(folder_path + 'real_prediction.npy', preds)
+        np.save(f'{folder_path}real_prediction.npy', preds)
 
         return

@@ -28,41 +28,61 @@ class Model(nn.Module):
             [
                 EncoderLayer(
                     AttentionLayer(
-                        ProbAttention(False, configs.factor, attention_dropout=configs.dropout,
-                                      output_attention=configs.output_attention),
-                        configs.d_model, configs.n_heads),
-                    configs.d_model,
-                    configs.d_ff,
-                    dropout=configs.dropout,
-                    activation=configs.activation
-                ) for l in range(configs.e_layers)
-            ],
-            [
-                ConvLayer(
-                    configs.d_model
-                ) for l in range(configs.e_layers - 1)
-            ] if configs.distil else None,
-            norm_layer=torch.nn.LayerNorm(configs.d_model)
-        )
-        # Decoder
-        self.decoder = Decoder(
-            [
-                DecoderLayer(
-                    AttentionLayer(
-                        ProbAttention(True, configs.factor, attention_dropout=configs.dropout, output_attention=False),
-                        configs.d_model, configs.n_heads),
-                    AttentionLayer(
-                        ProbAttention(False, configs.factor, attention_dropout=configs.dropout, output_attention=False),
-                        configs.d_model, configs.n_heads),
+                        ProbAttention(
+                            False,
+                            configs.factor,
+                            attention_dropout=configs.dropout,
+                            output_attention=configs.output_attention,
+                        ),
+                        configs.d_model,
+                        configs.n_heads,
+                    ),
                     configs.d_model,
                     configs.d_ff,
                     dropout=configs.dropout,
                     activation=configs.activation,
                 )
-                for l in range(configs.d_layers)
+                for _ in range(configs.e_layers)
+            ],
+            [ConvLayer(configs.d_model) for _ in range(configs.e_layers - 1)]
+            if configs.distil
+            else None,
+            norm_layer=torch.nn.LayerNorm(configs.d_model),
+        )
+
+        # Decoder
+        self.decoder = Decoder(
+            [
+                DecoderLayer(
+                    AttentionLayer(
+                        ProbAttention(
+                            True,
+                            configs.factor,
+                            attention_dropout=configs.dropout,
+                            output_attention=False,
+                        ),
+                        configs.d_model,
+                        configs.n_heads,
+                    ),
+                    AttentionLayer(
+                        ProbAttention(
+                            False,
+                            configs.factor,
+                            attention_dropout=configs.dropout,
+                            output_attention=False,
+                        ),
+                        configs.d_model,
+                        configs.n_heads,
+                    ),
+                    configs.d_model,
+                    configs.d_ff,
+                    dropout=configs.dropout,
+                    activation=configs.activation,
+                )
+                for _ in range(configs.d_layers)
             ],
             norm_layer=torch.nn.LayerNorm(configs.d_model),
-            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            projection=nn.Linear(configs.d_model, configs.c_out, bias=True),
         )
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,
